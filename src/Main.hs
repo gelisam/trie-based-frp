@@ -28,10 +28,12 @@ runTrie = untrie . normalTrie
 -- A Behavior is represented as a lazy trie in which each node holds the
 -- value of the behavior at that time, including the root node.
 
-data Behavior t a = Behavior
-  { currentValue :: a
-  , unBehavior :: ExTrie Behavior t a
-  }
+-- (commented out, as the true definition is via BehaviorT)
+--
+--     data Behavior t a = Behavior
+--       { currentValue :: a
+--       , unBehavior :: ExTrie Behavior t a
+--       }
 
 runBehavior :: HasTrie t => Behavior t a -> t -> Behavior t a
 runBehavior = runTrie . unBehavior
@@ -41,17 +43,83 @@ runBehavior = runTrie . unBehavior
 -- event occurrences, usually zero. The root node does not have any event
 -- occurrence.
 
-data EventResult t a = EventResult
-  { eventOccurrences :: [a]
-  , nextEvent :: Event t a
-  }
-
-newtype Event t a = Event
-  { unEvent :: ExTrie EventResult t a
-  }
+-- (commented out, as the true definition is via EventResultT and EventT)
+--
+--     data EventResult t a = EventResult
+--       { eventOccurrences :: [a]
+--       , nextEvent :: Event t a
+--       } deriving Functor
+--     
+--     newtype Event t a = Event
+--       { unEvent :: ExTrie EventResult t a
+--       }
 
 runEvent :: HasTrie t => Event t a -> t -> EventResult t a
 runEvent = runTrie . unEvent
+
+
+-- To understand why we need BehaviorT and EventT, consider a higher-order
+-- event, that is, an Event whose occurrences are themselves Events:
+-- 
+--     Event t (Event t a)
+-- 
+-- When 't' gets extended, the above becomes
+-- 
+--     Event (Extend t) (Event t a)
+-- 
+-- Since the event occurrences still have type 'Event t a', they cannot depend
+-- on the new external event which occurs in 'Extend t' but not in 't'. We
+-- would like the following instead:
+-- 
+--     Event (Extend t) (Event (Extend t) a)
+-- 
+-- In order to express the fact that both 't's should become 'Extend t', the
+-- type of event occurrences must be indexed by 't'. This is what EventT does.
+
+data BehaviorT f t a = BehaviorT
+  { currentValueT :: f t a
+  , unBehaviorT :: ExTrie (BehaviorT f) t a
+  }
+
+data EventResultT f t a = EventResultT
+  { eventOccurrencesT :: [f t a]
+  , nextEventT :: EventT f t a
+  }
+
+newtype EventT f t a = EventT
+  { unEventT :: ExTrie (EventResultT f) t a
+  }
+
+runBehaviorT :: HasTrie t => BehaviorT f t a -> t -> BehaviorT f t a
+runBehaviorT = runTrie . unBehaviorT
+
+runEventT :: HasTrie t => EventT f t a -> t -> EventResultT f t a
+runEventT = runTrie . unEventT
+
+
+-- Behavior and Event are special cases of BehaviorT and EventT in which the
+-- 't' index is ignored.
+
+data Snd t a = Snd { runSnd :: a }
+
+type Behavior = BehaviorT Snd
+type EventResult = EventResultT Snd
+type Event = EventT Snd
+
+currentValue :: Behavior t a -> a
+currentValue = runSnd . currentValueT
+
+unBehavior :: Behavior t a -> ExTrie Behavior t a
+unBehavior = unBehaviorT
+
+eventOccurrences :: EventResult t a -> [a]
+eventOccurrences = fmap runSnd . eventOccurrencesT
+
+nextEvent :: EventResult t a -> Event t a
+nextEvent = nextEventT
+
+unEvent :: Event t a -> ExTrie EventResult t a
+unEvent = unEventT
 
 
 main :: IO ()
