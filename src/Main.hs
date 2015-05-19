@@ -1,6 +1,7 @@
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeOperators, ScopedTypeVariables #-}
 module Main where
 
+import Data.Maybe
 import Data.MemoTrie
 
 
@@ -120,6 +121,47 @@ nextEvent = nextEventT
 
 unEvent :: Event t a -> ExTrie EventResult t a
 unEvent = unEventT
+
+
+-- Each time we extend 't', a new external event of type () becomes available.
+-- Each such external event can be captured as an 'Event t ()'. To demonstrate
+-- the types we have constructed so far, let's create a Behavior whose value is
+-- the 'Event t ()' for the most recent external event.
+
+externalEvent :: HasTrie t => (t -> Maybe a) -> Event t a
+externalEvent = EventT . mkExTrie
+  where
+    mkExTrie :: forall t a. HasTrie t
+             => (t -> Maybe a)
+             -> ExTrie EventResult t a
+    mkExTrie p = ExTrie (trie go) (mkExTrie pEx)
+      where
+        go :: t -> EventResult t a
+        go t = EventResultT (occurrences t) (externalEvent p)
+        
+        occurrences :: t -> [Snd t a]
+        occurrences = fmap Snd . maybeToList . p
+        
+        pEx :: Extend t -> Maybe a
+        pEx (Left ()) = Nothing
+        pEx (Right t) = p t
+
+lastExternalEvent :: HasTrie t => Event t () -> BehaviorT Event t ()
+lastExternalEvent e0 = BehaviorT e0 (mkExTrie e0)
+  where
+    mkExTrie :: forall t. HasTrie t
+             => Event t () -> ExTrie (BehaviorT Event) t ()
+    mkExTrie e = ExTrie (trie go) (mkExTrie eEx)
+      where
+        go :: t -> BehaviorT Event t ()
+        go t = BehaviorT e (mkExTrie e)
+        
+        eEx :: Event (Extend t) ()
+        eEx = externalEvent isLast
+        
+        isLast :: Extend t -> Maybe ()
+        isLast (Left ()) = Just ()
+        isLast (Right _) = Nothing
 
 
 main :: IO ()
