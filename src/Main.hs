@@ -1,7 +1,8 @@
-{-# LANGUAGE TypeOperators, ScopedTypeVariables #-}
+{-# LANGUAGE DeriveFunctor, ScopedTypeVariables, StandaloneDeriving, TypeOperators #-}
 module Main where
 
 import Control.Arrow
+import Data.Constraint
 import Data.Maybe
 import Data.MemoTrie
 
@@ -218,6 +219,43 @@ lastExternalEvent = go
         isLast :: Extend t -> Maybe ()
         isLast (Left ()) = Just ()
         isLast (Right _) = Nothing
+
+
+-- We would like Functor instances for everything, but the fact that 't'
+-- changes makes the condition on 'f' a bit too complicated for a regular
+-- constraint. Instead, we specify our requirements using Data.Constraint.
+
+class FunctorFT f where
+    functorFT :: HasTrie t :- Functor (f t)
+
+fmapFT :: forall f t a b. (FunctorFT f, HasTrie t)
+       => (a -> b) -> f t a -> f t b
+fmapFT f fx = case functorDict of
+    Dict -> fmap f fx
+  where
+    functorDict :: Dict (Functor (f t))
+    functorDict = mapDict functorFT Dict
+
+instance (FunctorFT f, HasTrie t) => Functor (ExTrie f t) where
+    fmap f (ExTrie t ex) = ExTrie (fmapTrie t) (fmap f ex)
+      where
+        fmapTrie = trie . fmap (fmapFT f) . untrie
+
+instance (FunctorFT f, HasTrie t) => Functor (BehaviorT f t) where
+    fmap f (BehaviorT fx bEx) = BehaviorT (fmapFT f fx) (fmap f bEx)
+
+instance (FunctorFT f, HasTrie t) => Functor (EventResultT f t) where
+    fmap f (EventResultT fxs e) = EventResultT (fmapOcc f fxs) (fmap f e)
+      where
+        fmapOcc = fmap . fmapFT
+
+deriving instance (FunctorFT f, HasTrie t) => Functor (EventT f t)
+deriving instance                             Functor (Snd f)
+
+instance FunctorFT f => FunctorFT (BehaviorT f)    where functorFT = Sub Dict
+instance FunctorFT f => FunctorFT (EventResultT f) where functorFT = Sub Dict
+instance FunctorFT f => FunctorFT (EventT f)       where functorFT = Sub Dict
+instance                FunctorFT Snd              where functorFT = Sub Dict
 
 
 main :: IO ()
