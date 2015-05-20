@@ -239,12 +239,12 @@ fmapFT f fx = case functorDict of
     functorDict = mapDict functorFT Dict
 
 instance (FunctorFT f, HasTrie t) => Functor (ExTrie f t) where
-    fmap f (ExTrie t ex) = ExTrie (fmapTrie t) (fmap f ex)
+    fmap f (ExTrie tfx ex) = ExTrie (fmapTrie tfx) (fmap f ex)
       where
         fmapTrie = trie . fmap (fmapFT f) . untrie
 
 instance (FunctorFT f, HasTrie t) => Functor (BehaviorT f t) where
-    fmap f (BehaviorT fx bEx) = BehaviorT (fmapFT f fx) (fmap f bEx)
+    fmap f (BehaviorT fx tbx) = BehaviorT (fmapFT f fx) (fmap f tbx)
 
 instance (FunctorFT f, HasTrie t) => Functor (EventResultT f t) where
     fmap f (EventResultT fxs e) = EventResultT (fmapOcc f fxs) (fmap f e)
