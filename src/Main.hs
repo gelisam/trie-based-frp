@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeOperators, ScopedTypeVariables #-}
 module Main where
 
+import Control.Arrow
 import Data.Maybe
 import Data.MemoTrie
 
@@ -22,6 +23,12 @@ data ExTrie f t a = ExTrie
   , extendedTrie :: ExTrie f (Extend t) a
   }
 
+mkExTrie :: HasTrie t
+         => (t -> f t a)
+         -> ExTrie f (Extend t) a
+         -> ExTrie f t a
+mkExTrie = ExTrie . trie
+
 runTrie :: HasTrie t => ExTrie f t a -> t -> f t a
 runTrie = untrie . normalTrie
 
@@ -31,10 +38,17 @@ runTrie = untrie . normalTrie
 
 -- (commented out, as the true definition is via BehaviorT)
 --
---     data Behavior t a = Behavior
---       { currentValue :: a
---       , unBehavior :: ExTrie Behavior t a
---       }
+--    data Behavior t a = Behavior
+--      { currentValue :: a
+--      , unBehavior :: ExTrie Behavior t a
+--      }
+--    
+--    mkBehavior :: HasTrie t
+--               => a
+--               -> (t -> Behavior t a)
+--               -> Behavior (Extend t) a
+--               -> Behavior t a
+--    mkBehavior fx f = Behavior fx . mkExTrie f . unBehavior
 
 runBehavior :: HasTrie t => Behavior t a -> t -> Behavior t a
 runBehavior = runTrie . unBehavior
@@ -46,14 +60,23 @@ runBehavior = runTrie . unBehavior
 
 -- (commented out, as the true definition is via EventResultT and EventT)
 --
---     data EventResult t a = EventResult
---       { eventOccurrences :: [a]
---       , nextEvent :: Event t a
---       } deriving Functor
---     
---     newtype Event t a = Event
---       { unEvent :: ExTrie EventResult t a
---       }
+--    data EventResult t a = EventResult
+--      { eventOccurrences :: [a]
+--      , nextEvent :: Event t a
+--      }
+--    
+--    newtype Event t a = Event
+--      { unEvent :: ExTrie EventResult t a
+--      }
+--    
+--    mkEvent :: forall t a. HasTrie t
+--            => (t -> ([a], Event t a))
+--            -> Event (Extend t) a
+--            -> Event t a
+--    mkEvent f = Event . mkExTrie f' . unEvent
+--      where
+--        f' :: t -> EventResult t a
+--        f' = uncurry EventResult . f
 
 runEvent :: HasTrie t => Event t a -> t -> EventResult t a
 runEvent = runTrie . unEvent
@@ -91,6 +114,19 @@ newtype EventT f t a = EventT
   { unEventT :: ExTrie (EventResultT f) t a
   }
 
+mkBehaviorT :: HasTrie t
+            => f t a
+            -> (t -> BehaviorT f t a)
+            -> BehaviorT f (Extend t) a
+            -> BehaviorT f t a
+mkBehaviorT fx f = BehaviorT fx . mkExTrie f . unBehaviorT
+
+mkEventT :: HasTrie t
+         => (t -> EventResultT f t a)
+         -> EventT f (Extend t) a
+         -> EventT f t a
+mkEventT f = EventT . mkExTrie f . unEventT
+
 runBehaviorT :: HasTrie t => BehaviorT f t a -> t -> BehaviorT f t a
 runBehaviorT = runTrie . unBehaviorT
 
@@ -110,17 +146,33 @@ type Event = EventT Snd
 currentValue :: Behavior t a -> a
 currentValue = runSnd . currentValueT
 
-unBehavior :: Behavior t a -> ExTrie Behavior t a
-unBehavior = unBehaviorT
-
 eventOccurrences :: EventResult t a -> [a]
 eventOccurrences = fmap runSnd . eventOccurrencesT
 
 nextEvent :: EventResult t a -> Event t a
 nextEvent = nextEventT
 
+unBehavior :: Behavior t a -> ExTrie Behavior t a
+unBehavior = unBehaviorT
+
 unEvent :: Event t a -> ExTrie EventResult t a
 unEvent = unEventT
+
+mkBehavior :: HasTrie t
+           => a
+           -> (t -> Behavior t a)
+           -> Behavior (Extend t) a
+           -> Behavior t a
+mkBehavior fx f = BehaviorT (Snd fx) . mkExTrie f . unBehaviorT
+
+mkEvent :: forall t a. HasTrie t
+        => (t -> ([a], Event t a))
+        -> Event (Extend t) a
+        -> Event t a
+mkEvent f = EventT . mkExTrie f' . unEventT
+  where
+    f' :: t -> EventResult t a
+    f' = uncurry EventResultT . first (fmap Snd) . f
 
 
 -- Each time we extend 't', a new external event of type () becomes available.
@@ -129,32 +181,36 @@ unEvent = unEventT
 -- the 'Event t ()' for the most recent external event.
 
 externalEvent :: HasTrie t => (t -> Maybe a) -> Event t a
-externalEvent = EventT . mkExTrie
+externalEvent = go
   where
-    mkExTrie :: forall t a. HasTrie t
-             => (t -> Maybe a)
-             -> ExTrie EventResult t a
-    mkExTrie p = ExTrie (trie go) (mkExTrie pEx)
+    go :: forall t a. HasTrie t
+        => (t -> Maybe a)
+        -> Event t a
+    go p = r
       where
-        go :: t -> EventResult t a
-        go t = EventResultT (occurrences t) (externalEvent p)
+        r :: Event t a
+        r = mkEvent f (go pEx)
         
-        occurrences :: t -> [Snd t a]
-        occurrences = fmap Snd . maybeToList . p
+        f :: t -> ([a], Event t a)
+        f t = (occurrences t, r)
+        
+        occurrences :: t -> [a]
+        occurrences = maybeToList . p
         
         pEx :: Extend t -> Maybe a
         pEx (Left ()) = Nothing
         pEx (Right t) = p t
 
 lastExternalEvent :: HasTrie t => Event t () -> BehaviorT Event t ()
-lastExternalEvent e0 = BehaviorT e0 (mkExTrie e0)
+lastExternalEvent = go
   where
-    mkExTrie :: forall t. HasTrie t
-             => Event t () -> ExTrie (BehaviorT Event) t ()
-    mkExTrie e = ExTrie (trie go) (mkExTrie eEx)
+    go :: forall t. HasTrie t
+       => Event t ()
+       -> BehaviorT Event t ()
+    go e = r
       where
-        go :: t -> BehaviorT Event t ()
-        go t = BehaviorT e (mkExTrie e)
+        r :: BehaviorT Event t ()
+        r = mkBehaviorT e (const r) (go eEx)
         
         eEx :: Event (Extend t) ()
         eEx = externalEvent isLast
