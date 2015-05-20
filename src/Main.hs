@@ -224,6 +224,8 @@ lastExternalEvent = go
 -- We would like Functor instances for everything, but the fact that 't'
 -- changes makes the condition on 'f' a bit too complicated for a regular
 -- constraint. Instead, we specify our requirements using Data.Constraint.
+-- 
+-- (feel free to skip this part, it's technical and unimportant)
 
 class FunctorFT f where
     functorFT :: HasTrie t :- Functor (f t)
