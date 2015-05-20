@@ -232,11 +232,8 @@ class FunctorFT f where
 
 fmapFT :: forall f t a b. (FunctorFT f, HasTrie t)
        => (a -> b) -> f t a -> f t b
-fmapFT f fx = case functorDict of
-    Dict -> fmap f fx
-  where
-    functorDict :: Dict (Functor (f t))
-    functorDict = mapDict functorFT Dict
+fmapFT = case functorFT :: HasTrie t :- Functor (f t) of
+    Sub Dict -> fmap
 
 instance (FunctorFT f, HasTrie t) => Functor (ExTrie f t) where
     fmap f (ExTrie tfx ex) = ExTrie (fmapTrie tfx) (fmap f ex)
