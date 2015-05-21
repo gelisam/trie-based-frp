@@ -257,5 +257,39 @@ instance FunctorFT f => FunctorFT (EventT f)       where functorFT = Sub Dict
 instance                FunctorFT Snd              where functorFT = Sub Dict
 
 
+-- Same difficulty with Applicative.
+-- (feel free to skip this part as well)
+
+class FunctorFT f => ApplicativeFT f where
+    applicativeFT :: HasTrie t :- Applicative (f t)
+
+pureFT :: forall f t a. (ApplicativeFT f, HasTrie t)
+       => a -> f t a
+pureFT = case applicativeFT :: HasTrie t :- Applicative (f t) of
+    Sub Dict -> pure
+
+apFT :: forall f t a b. (ApplicativeFT f, HasTrie t)
+     => f t (a -> b) -> f t a -> f t b
+apFT = case applicativeFT :: HasTrie t :- Applicative (f t) of
+    Sub Dict -> (<*>)
+
+instance (ApplicativeFT f, HasTrie t) => Applicative (ExTrie f t) where
+    pure x = ExTrie (pure (pureFT x)) (pure x)
+    ExTrie tff fEx <*> ExTrie tfx xEx = ExTrie (apFT <$> tff <*> tfx)
+                                               (fEx <*> xEx)
+
+instance (ApplicativeFT f, HasTrie t) => Applicative (BehaviorT f t) where
+    pure x = BehaviorT (pureFT x) (pure x)
+    BehaviorT ff tbf <*> BehaviorT fx tbx = BehaviorT (apFT ff fx)
+                                                      (tbf <*> tbx)
+
+instance Applicative (Snd f) where
+    pure x = Snd x
+    Snd f <*> Snd x = Snd (f x)
+
+instance ApplicativeFT f => ApplicativeFT (BehaviorT f) where applicativeFT = Sub Dict
+instance                    ApplicativeFT Snd           where applicativeFT = Sub Dict
+
+
 main :: IO ()
 main = putStrLn "typechecks."
