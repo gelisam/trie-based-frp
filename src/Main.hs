@@ -221,11 +221,17 @@ lastExternalEvent = go
         isLast (Right _) = Nothing
 
 
+main :: IO ()
+main = putStrLn "typechecks."
+
+
+-- Feel free to skip the remainder of this file, it's both technical and
+-- relatively unimportant.
+
+
 -- We would like Functor instances for everything, but the fact that 't'
 -- changes makes the condition on 'f' a bit too complicated for a regular
 -- constraint. Instead, we specify our requirements using Data.Constraint.
--- 
--- (feel free to skip this part, it's technical and unimportant)
 
 class FunctorFT f where
     functorFT :: HasTrie t :- Functor (f t)
@@ -257,8 +263,8 @@ instance FunctorFT f => FunctorFT (EventT f)       where functorFT = Sub Dict
 instance                FunctorFT Snd              where functorFT = Sub Dict
 
 
--- Same difficulty with Applicative.
--- (feel free to skip this part as well)
+-- Same difficulty with Applicative. There is an Applicative instance for
+-- Behavior, but not for Event.
 
 class FunctorFT f => ApplicativeFT f where
     applicativeFT :: HasTrie t :- Applicative (f t)
@@ -289,7 +295,3 @@ instance Applicative (Snd f) where
 
 instance ApplicativeFT f => ApplicativeFT (BehaviorT f) where applicativeFT = Sub Dict
 instance                    ApplicativeFT Snd           where applicativeFT = Sub Dict
-
-
-main :: IO ()
-main = putStrLn "typechecks."
