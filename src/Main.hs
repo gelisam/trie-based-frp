@@ -221,6 +221,18 @@ lastExternalEvent = go
         isLast (Right _) = Nothing
 
 
+-- And now, the combinators!
+
+
+never :: HasTrie t => EventT f t a
+never = mempty
+
+union :: HasTrie t => EventT f t a -> EventT f t a -> EventT f t a
+union = mappend
+
+
+-- TODO: demonstrate how to build and use a dynamic event network.
+
 main :: IO ()
 main = putStrLn "typechecks."
 
@@ -295,3 +307,43 @@ instance Applicative (Snd f) where
 
 instance ApplicativeFT f => ApplicativeFT (BehaviorT f) where applicativeFT = Sub Dict
 instance                    ApplicativeFT Snd           where applicativeFT = Sub Dict
+
+
+-- Same difficulty with Monoid. There is a Monoid instance for Event, but not
+-- for Behavior.
+
+class MonoidFT f where
+    monoidFT :: HasTrie t :- Monoid (f t a)
+
+memptyFT :: forall f t a. (MonoidFT f, HasTrie t)
+         => f t a
+memptyFT = case monoidFT :: HasTrie t :- Monoid (f t a) of
+    Sub Dict -> mempty
+
+mappendFT :: forall f t a. (MonoidFT f, HasTrie t)
+          => f t a -> f t a -> f t a
+mappendFT = case monoidFT :: HasTrie t :- Monoid (f t a) of
+    Sub Dict -> mappend
+
+instance (MonoidFT f, HasTrie t) => Monoid (ExTrie f t a) where
+    mempty = ExTrie emptyTrie mempty
+      where
+        emptyTrie = trie (const memptyFT)
+    ExTrie tfx exx `mappend` ExTrie tfy exy = ExTrie tfz exz
+      where
+        tfz = trie (\t -> untrie tfx t `mappendFT` untrie tfy t)
+        exz = exx `mappend` exy
+
+instance HasTrie t => Monoid (EventResultT f t a) where
+    mempty = EventResultT mempty mempty
+    EventResultT xs ex `mappend` EventResultT ys ey = EventResultT zs ez
+      where
+        zs = xs `mappend` ys
+        ez = ex `mappend` ey
+
+instance HasTrie t => Monoid (EventT f t a) where
+    mempty = EventT mempty
+    EventT ex `mappend` EventT ey = EventT (ex `mappend` ey)
+
+instance MonoidFT (EventResultT f) where monoidFT = Sub Dict
+instance MonoidFT (EventT f)       where monoidFT = Sub Dict
