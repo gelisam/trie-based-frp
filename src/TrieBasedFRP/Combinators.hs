@@ -56,6 +56,13 @@ filterApply b e = filterJust (go <$> b <@> e)
     go :: (a -> Bool) -> a -> Maybe a
     go p x = if p x then Just x else Nothing
 
+-- |
+-- >>> let input = [[1,2,3],[4,5,6],[7,8,9]]
+-- >>> interpret (\e -> whenE (even <$> stepper 0 e) e) input 
+-- [[1,2,3],[],[7,8,9]]
+whenE :: HasTrie t => Behavior t Bool -> Event t a -> Event t a
+whenE = filterApply . fmap const
+
 
 -- |
 -- >>> interpret (accumE 0 . fmap (+)) [[1,2,3],[4,5,6]]
