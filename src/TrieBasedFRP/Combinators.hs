@@ -71,6 +71,32 @@ stepper x e = mkBehavior x go (stepper x (weaken e))
         x' = last (x:xs)
 
 
+infixl 4 <@>
+infixl 4 <@
+
+-- |
+-- >>> interpret (\e -> (*) <$> stepper 1 e <@> e) [[1,2,3],[4,5,6]]
+-- [[1,2,3],[12,15,18]]
+(<@>) :: forall t a b. HasTrie t
+      => Behavior t (a -> b)
+      -> Event t a
+      -> Event t b
+b <@> e = mkEvent go (weaken b <@> weaken e)
+  where
+    go :: t -> ([b], Event t b)
+    go t = (fmap f xs, b' <@> e')
+      where
+        (xs, e') = runEvent e t
+        b' = runBehavior b t
+        f = currentValue b
+
+-- |
+-- >>> interpret (\e -> stepper 0 e <@ e) [[1,2,3],[4,5,6]]
+-- [[0,0,0],[3,3,3]]
+(<@) :: HasTrie t => Behavior t b -> Event t a -> Event t b
+(<@) = (<@>) . fmap const
+
+
 -- |
 -- >>> interpret collect [[1,2,3],[]]
 -- [[[1,2,3]],[]]
