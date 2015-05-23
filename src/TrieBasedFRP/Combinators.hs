@@ -80,6 +80,22 @@ split e = (filterJust (fromLeft <$> e), filterJust (fromRight <$> e))
 
 
 -- |
+-- >>> interpretB (accumB 0 . fmap (+)) [[1,2,3],[4,5,6]]
+-- [0,6,21]
+accumB :: forall t a. HasTrie t
+       => a
+       -> Event t (a -> a)
+       -> Behavior t a
+accumB x e = mkBehavior x go (accumB x (weaken e))
+  where
+    go :: t -> Behavior t a
+    go t = x' `seq` accumB x' e'
+      where
+        (fs, e') = runEvent e t
+        f = foldr (.) id fs
+        x' = f x
+
+-- |
 -- >>> interpret (accumE 0 . fmap (+)) [[1,2,3],[4,5,6]]
 -- [[1,3,6],[10,15,21]]
 accumE :: forall t a. HasTrie t
