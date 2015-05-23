@@ -63,6 +63,21 @@ filterApply b e = filterJust (go <$> b <@> e)
 whenE :: HasTrie t => Behavior t Bool -> Event t a -> Event t a
 whenE = filterApply . fmap const
 
+-- |
+-- >>> let input = [[Right 1,Left 2,Right 3],[Left 4 :: Either Int Int]]
+-- >>> interpret (uncurry union . split) input
+-- [[2,1,3],[4]]
+split :: HasTrie t => Event t (Either a b) -> (Event t a, Event t b)
+split e = (filterJust (fromLeft <$> e), filterJust (fromRight <$> e))
+  where
+    fromLeft :: Either a b -> Maybe a
+    fromLeft (Left  x) = Just x
+    fromLeft (Right _) = Nothing
+    
+    fromRight :: Either a b -> Maybe b
+    fromRight (Left  _) = Nothing
+    fromRight (Right y) = Just y
+
 
 -- |
 -- >>> interpret (accumE 0 . fmap (+)) [[1,2,3],[4,5,6]]
