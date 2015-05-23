@@ -55,6 +55,9 @@ accumE x e = mkEvent go (accumE x (weaken e))
         x' = last xs
         xs' = tail xs  -- skip the initial unmodified x
 
+-- |
+-- >>> interpretB (stepper 0) [[1,2,3],[4,5,6]]
+-- [0,3,6]
 stepper :: forall t a. HasTrie t
         => a
         -> Event t a

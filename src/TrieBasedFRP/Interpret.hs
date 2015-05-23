@@ -30,3 +30,24 @@ interpret mkNetwork = takeUntil outputE
     takeUntil e (xs:xss) = ys : takeUntil e' xss
       where
         (ys, e') = runEvent e xs
+
+-- |
+-- >>> interpretB (stepper 0) [[1,2,3],[4,5,6]]
+-- [0,3,6]
+-- 
+-- >>> interpretB (fmap (+1) . stepper 0) [[1,2,3],[4,5,6]]
+-- [1,4,7]
+interpretB :: forall a b. HasTrie a
+           => (forall t. HasTrie t => Event t a -> Behavior t b)
+           -> [[a]]
+           -> [b]
+interpretB mkNetwork = takeUntil outputE
+  where
+    outputE :: Behavior [a] b
+    outputE = mkNetwork (spill (externalEvent Just))
+    
+    takeUntil :: Behavior [a] b -> [[a]] -> [b]
+    takeUntil b [] = [currentValue b]
+    takeUntil b (xs:xss) = currentValue b : takeUntil b' xss
+      where
+        b' = runBehavior b xs
