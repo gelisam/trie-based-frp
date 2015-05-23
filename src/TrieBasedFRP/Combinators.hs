@@ -55,6 +55,18 @@ accumE x e = mkEvent go (accumE x (weaken e))
         x' = last xs
         xs' = tail xs  -- skip the initial unmodified x
 
+stepper :: forall t a. HasTrie t
+        => a
+        -> Event t a
+        -> Behavior t a
+stepper x e = mkBehavior x go (stepper x (weaken e))
+  where
+    go :: t -> Behavior t a
+    go t = stepper x' e'
+      where
+        (xs, e') = runEvent e t
+        x' = last (x:xs)
+
 
 -- |
 -- >>> interpret collect [[1,2,3],[]]
