@@ -24,6 +24,21 @@ union = mappend
 
 
 -- |
+-- >>> interpret (filterE even) [[1,2,3],[4,5,6]]
+-- [[2],[4,6]]
+filterE :: forall t a. HasTrie t
+        => (a -> Bool)
+        -> Event t a
+        -> Event t a
+filterE p e = mkEvent go (filterE p (weaken e))
+  where
+    go :: t -> ([a], Event t a)
+    go t = (filter p xs, filterE p e')
+      where
+        (xs, e') = runEvent e t
+
+
+-- |
 -- >>> interpret spill [[[1,2,3]],[[4],[5,6]]]
 -- [[1,2,3],[4,5,6]]
 spill :: forall t a. HasTrie t
