@@ -39,6 +39,24 @@ filterE p e = mkEvent go (filterE p (weaken e))
 
 
 -- |
+-- >>> interpret (accumE 0 . fmap (+)) [[1,2,3],[4,5,6]]
+-- [[1,3,6],[10,15,21]]
+accumE :: forall t a. HasTrie t
+       => a
+       -> Event t (a -> a)
+       -> Event t a
+accumE x e = mkEvent go (accumE x (weaken e))
+  where
+    go :: t -> ([a], Event t a)
+    go t = x' `seq` (xs', accumE x' e')
+      where
+        (fs, e') = runEvent e t
+        xs = scanl (flip ($)) x fs
+        x' = last xs
+        xs' = tail xs  -- skip the initial unmodified x
+
+
+-- |
 -- >>> interpret collect [[1,2,3],[]]
 -- [[[1,2,3]],[]]
 collect :: forall t a. HasTrie t
