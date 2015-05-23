@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, RankNTypes, ScopedTypeVariables, StandaloneDeriving, TypeOperators #-}
+{-# LANGUAGE DeriveFunctor, ScopedTypeVariables, StandaloneDeriving, TypeOperators #-}
 module TrieBasedFRP.Types where
 
 import Control.Arrow
