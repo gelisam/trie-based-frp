@@ -46,6 +46,16 @@ filterE p e = mkEvent go (filterE p (weaken e))
 filterJust :: HasTrie t => Event t (Maybe a) -> Event t a
 filterJust = fmap fromJust . filterE isJust
 
+-- |
+-- >>> let input = [[1,2,3],[1,3,9],[9,8,7]]
+-- >>> interpret (\e -> filterApply ((==) <$> stepper 0 e) e) input 
+-- [[],[3],[9]]
+filterApply :: HasTrie t => Behavior t (a -> Bool) -> Event t a -> Event t a
+filterApply b e = filterJust (go <$> b <@> e)
+  where
+    go :: (a -> Bool) -> a -> Maybe a
+    go p x = if p x then Just x else Nothing
+
 
 -- |
 -- >>> interpret (accumE 0 . fmap (+)) [[1,2,3],[4,5,6]]
