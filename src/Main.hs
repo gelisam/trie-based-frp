@@ -79,8 +79,12 @@ runBehavior = runTrie . unBehavior
 --        f' :: t -> EventResult t a
 --        f' = uncurry EventResult . f
 
-runEvent :: HasTrie t => Event t a -> t -> EventResult t a
-runEvent = runTrie . unEvent
+runEvent :: HasTrie t => Event t a -> t -> ([a], Event t a)
+runEvent e t = (ys, e')
+  where
+    r = runTrie (unEvent e) t
+    ys = eventOccurrences r
+    e' = nextEvent r
 
 
 -- To understand why we need BehaviorT and EventT, consider a higher-order
@@ -131,8 +135,12 @@ mkEventT f = EventT . mkExTrie f . unEventT
 runBehaviorT :: HasTrie t => BehaviorT f t a -> t -> BehaviorT f t a
 runBehaviorT = runTrie . unBehaviorT
 
-runEventT :: HasTrie t => EventT f t a -> t -> EventResultT f t a
-runEventT = runTrie . unEventT
+runEventT :: HasTrie t => EventT f t a -> t -> ([f t a], EventT f t a)
+runEventT e t = (ys, e')
+  where
+    r = runTrie (unEventT e) t
+    ys = eventOccurrencesT r
+    e' = nextEventT r
 
 
 -- Behavior and Event are special cases of BehaviorT and EventT in which the
