@@ -126,11 +126,14 @@ mkBehaviorT :: HasTrie t
             -> BehaviorT f t a
 mkBehaviorT fx f = BehaviorT fx . mkExTrie f . unBehaviorT
 
-mkEventT :: HasTrie t
-         => (t -> EventResultT f t a)
+mkEventT :: forall f t a. HasTrie t
+         => (t -> ([f t a], EventT f t a))
          -> EventT f (Extend t) a
          -> EventT f t a
-mkEventT f = EventT . mkExTrie f . unEventT
+mkEventT f = EventT . mkExTrie f' . unEventT
+  where
+    f' :: t -> EventResultT f t a
+    f' = uncurry EventResultT . f
 
 runBehaviorT :: HasTrie t => BehaviorT f t a -> t -> BehaviorT f t a
 runBehaviorT = runTrie . unBehaviorT
