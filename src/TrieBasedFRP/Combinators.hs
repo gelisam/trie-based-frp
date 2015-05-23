@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module TrieBasedFRP.Combinators where
 
+import Data.Maybe
 import Data.MemoTrie
 
 import TrieBasedFRP.Types
@@ -36,6 +37,14 @@ filterE p e = mkEvent go (filterE p (weaken e))
     go t = (filter p xs, filterE p e')
       where
         (xs, e') = runEvent e t
+
+-- |
+-- >>> let input = [[Right 1,Left 2,Right 3],[Left 4 :: Either Int Int]]
+-- >>> let fromRight = either (const Nothing) Just
+-- >>> interpret (filterJust . fmap fromRight) input
+-- [[1,3],[]]
+filterJust :: HasTrie t => Event t (Maybe a) -> Event t a
+filterJust = fmap fromJust . filterE isJust
 
 
 -- |
