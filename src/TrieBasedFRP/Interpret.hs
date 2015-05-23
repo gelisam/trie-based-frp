@@ -1,9 +1,9 @@
 {-# LANGUAGE RankNTypes, ScopedTypeVariables #-}
 module TrieBasedFRP.Interpret where
 
-import Control.Arrow
 import Data.MemoTrie
 
+import TrieBasedFRP.Combinators
 import TrieBasedFRP.Types
 
 
@@ -22,17 +22,11 @@ interpret :: forall a b. HasTrie a
           -> [[b]]
 interpret mkNetwork = takeUntil outputE
   where
-    outputE :: Event a b
-    outputE = mkNetwork (externalEvent Just)
+    outputE :: Event [a] b
+    outputE = mkNetwork (spill (externalEvent Just))
     
-    takeUntil :: Event a b -> [[a]] -> [[b]]
+    takeUntil :: Event [a] b -> [[a]] -> [[b]]
     takeUntil _ [] = []
     takeUntil e (xs:xss) = ys : takeUntil e' xss
       where
-        (ys, e') = runEvents e xs
-    
-    runEvents :: Event a b -> [a] -> ([b], Event a b)
-    runEvents e [] = ([], e)
-    runEvents e (x:xs) = first (ys ++) (runEvents e' xs)
-      where
-        (ys, e') = runEvent e x
+        (ys, e') = runEvent e xs
