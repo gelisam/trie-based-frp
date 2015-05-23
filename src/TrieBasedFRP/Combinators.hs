@@ -39,6 +39,20 @@ filterE p e = mkEvent go (filterE p (weaken e))
 
 
 -- |
+-- >>> interpret collect [[1,2,3],[]]
+-- [[[1,2,3]],[]]
+collect :: forall t a. HasTrie t
+        => Event t a
+        -> Event t [a]
+collect e = mkEvent go (collect (weaken e))
+  where
+    go :: t -> ([[a]], Event t [a])
+    go t = (xss, collect e')
+      where
+        (xs, e') = runEvent e t
+        xss = if null xs then [] else [xs]
+
+-- |
 -- >>> interpret spill [[[1,2,3]],[[4],[5,6]]]
 -- [[1,2,3],[4,5,6]]
 spill :: forall t a. HasTrie t
