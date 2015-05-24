@@ -80,6 +80,21 @@ split e = (filterJust (fromLeft <$> e), filterJust (fromRight <$> e))
 
 
 -- |
+-- >>> interpretB (stepper 0) [[1,2,3],[4,5,6]]
+-- [0,3,6]
+stepper :: forall t a. HasTrie t
+        => a
+        -> Event t a
+        -> Behavior t a
+stepper x e = mkBehavior x go (stepper x (weaken e))
+  where
+    go :: t -> Behavior t a
+    go t = stepper x' e'
+      where
+        (xs, e') = runEvent e t
+        x' = last (x:xs)
+
+-- |
 -- >>> interpretB (accumB 0 . fmap (+)) [[1,2,3],[4,5,6]]
 -- [0,6,21]
 accumB :: forall t a. HasTrie t
@@ -111,21 +126,6 @@ accumE x e = mkEvent go (accumE x (weaken e))
         xs = scanl (flip ($)) x fs
         x' = last xs
         xs' = tail xs  -- skip the initial unmodified x
-
--- |
--- >>> interpretB (stepper 0) [[1,2,3],[4,5,6]]
--- [0,3,6]
-stepper :: forall t a. HasTrie t
-        => a
-        -> Event t a
-        -> Behavior t a
-stepper x e = mkBehavior x go (stepper x (weaken e))
-  where
-    go :: t -> Behavior t a
-    go t = stepper x' e'
-      where
-        (xs, e') = runEvent e t
-        x' = last (x:xs)
 
 
 infixl 4 <@>
