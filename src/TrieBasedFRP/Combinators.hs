@@ -180,3 +180,17 @@ spill e = mkEvent go (spill (weaken e))
     go t = (concat xss, spill e')
       where
         (xss, e') = runEvent e t
+
+-- |
+-- >>> interpret calm [[1,2,3],[],[4,5,6]]
+-- [[3],[],[6]]
+calm :: forall t a. HasTrie t
+     => Event t a
+     -> Event t a
+calm e = mkEvent go (calm (weaken e))
+  where
+    go :: t -> ([a], Event t a)
+    go t = (xs', calm e')
+      where
+        (xs, e') = runEvent e t
+        xs' = if null xs then [] else [last xs]
